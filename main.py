@@ -110,8 +110,17 @@ def evaluate_models(models, X_train, X_test, y_train, y_test):
         model.fit(X_train, y_train)
         y_pred = model.predict(X_test)
         print(f"Model: {model.__class__.__name__}")
+        
+        # Get confusion matrix
+        cm = confusion_matrix(y_test, y_pred)
+        
+        # Print labeled confusion matrix with TN, FP, FN, TP
         print("Confusion Matrix:")
-        print(confusion_matrix(y_test, y_pred))
+        print("                  | Predicted Legitimate | Predicted Fraud")
+        print("------------------|--------------------|----------------")
+        print(f"Actual Legitimate |         TN={cm[0][0]}          |       FP={cm[0][1]}")
+        print(f"Actual Fraud      |         FN={cm[1][0]}          |       TP={cm[1][1]}")
+        
         print("Accuracy: ", accuracy_score(y_test, y_pred))
         print("Precision: ", precision_score(y_test, y_pred))
         print("Recall: ", recall_score(y_test, y_pred), "\n\n")
