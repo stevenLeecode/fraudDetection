@@ -34,10 +34,12 @@ y = df_encoded['Fraudulent']
 #Split dataset into 80% train and 20% test.
 X_train, X_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42)
 
+#Define our models.
 svm = svm.SVC()
-logistic_model = LogisticRegression(max_iter=10000)
-decision_tree_model = DecisionTreeClassifier()
+logistic_model = LogisticRegression(max_iter=100000)
+decision_tree_model = DecisionTreeClassifier(criterion='entropy')
 
+#Run through each model and print out the confusion matrix, accuracy, precision and recall.
 ml_models = [logistic_model, decision_tree_model, svm]
 for model in ml_models:
     model.fit(X_train, y_train)
