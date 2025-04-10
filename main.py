@@ -1,4 +1,10 @@
 import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
+from sklearn import svm
+from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score
+from sklearn.preprocessing import LabelEncoder
 
 df = pd.read_csv('Fraud Detection Dataset.csv')
 print(f"Total missing values in dataset: {df.isnull().sum().sum()}")
@@ -8,14 +14,13 @@ df.dropna(inplace=True)
 #Drop all rows where values are duplicated.
 df.drop_duplicates(inplace=True)
 
-#Encode categorical values to booleans 
+#Encode categorical variables using LabelEncoder
+#LabelEncoder converts each unique value into an integer that represents the text it was before encoding.
 categorical_columns = ['Transaction_Type', 'Device_Used', 'Location', 'Payment_Method']
-# Convert categorical columns to numerical using one-hot encoding
-df_encoded = pd.get_dummies(df, columns=categorical_columns, drop_first=True)
-
-#Convert boolean columns to 0/1 for our ML models to easily process.
-boolean_cols = df_encoded.select_dtypes(include='bool').columns
-df_encoded[boolean_cols] = df_encoded[boolean_cols].astype(int)
+label_encoder = LabelEncoder()
+df_encoded = df.copy()
+for column in categorical_columns:
+    df_encoded[column] = label_encoder.fit_transform(df[column])
 
 #Drop Transaction_ID since I think they are irrelevant. 
 #Possibly don't need to do this and we can keep this not sure.
@@ -23,4 +28,25 @@ df_encoded[boolean_cols] = df_encoded[boolean_cols].astype(int)
 #with the same people having fraudulent transactions.
 df_encoded.drop(['Transaction_ID'], axis=1, inplace=True)
 
-print(df_encoded.head())
+x = df_encoded.drop('Fraudulent', axis=1)
+y = df_encoded['Fraudulent']
+
+#Split dataset into 80% train and 20% test.
+X_train, X_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42)
+
+#Define our models.
+svm = svm.SVC()
+logistic_model = LogisticRegression(max_iter=100000)
+decision_tree_model = DecisionTreeClassifier(criterion='entropy')
+
+#Run through each model and print out the confusion matrix, accuracy, precision and recall.
+ml_models = [logistic_model, decision_tree_model, svm]
+for model in ml_models:
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    print(f"Model: {model.__class__.__name__}")
+    print("Confusion Matrix:")
+    print(confusion_matrix(y_test, y_pred))
+    print("Accuracy: ", accuracy_score(y_test, y_pred))
+    print("Precision: ", precision_score(y_test, y_pred))
+    print("Recall: ", recall_score(y_test, y_pred), "\n\n")
