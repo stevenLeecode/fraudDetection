@@ -1,7 +1,5 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LogisticRegression
-from sklearn.tree import DecisionTreeClassifier
 from sklearn import svm
 from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score
 from sklearn.preprocessing import LabelEncoder
@@ -104,31 +102,16 @@ def train_test_data_split(x, y, test_size=0.2, random_state=42):
     X_train, X_test, y_train, y_test = train_test_split(x, y, test_size=test_size, random_state=random_state)
     return X_train, X_test, y_train, y_test
 
-def define_models():
+def define_model():
     """
-    Define machine learning models for fraud detection with balanced class weights.
+    Define SVM model for fraud detection with balanced class weights.
     """
-    svm_model = svm.SVC(
+    return svm.SVC(
         class_weight='balanced',
         kernel='rbf',
         probability=True,
         random_state=42
     )
-    
-    logistic_model = LogisticRegression(
-        class_weight='balanced',
-        max_iter=10000,
-        solver='liblinear',
-        random_state=42
-    )
-    
-    decision_tree_model = DecisionTreeClassifier(
-        class_weight='balanced',
-        criterion='entropy',
-        random_state=42
-    )
-    
-    return [logistic_model, decision_tree_model, svm_model]
 
 def analyze_class_distribution(y):
     """
@@ -153,193 +136,34 @@ def analyze_class_distribution(y):
     
     return imbalance_ratio
 
-def evaluate_models(models, X_train, X_test, y_train, y_test):
+def evaluate_model(model, X_train, X_test, y_train, y_test):
     """
-    Train and evaluate models, printing performance metrics.
+    Train and evaluate the SVM model, printing performance metrics.
     
     Args:
-        models (list): List of model objects
+        model: SVM model object
         X_train (pd.DataFrame): Training features
         X_test (pd.DataFrame): Testing features
         y_train (pd.Series): Training target
         y_test (pd.Series): Testing target
     """
-    #Run through each model and print out the confusion matrix, accuracy, precision and recall.
-    for model in models:
-        model.fit(X_train, y_train)
-        y_pred = model.predict(X_test)
-        print(f"Model: {model.__class__.__name__}")
-        
-        # Get confusion matrix
-        cm = confusion_matrix(y_test, y_pred)
-        
-        # Print labeled confusion matrix with TN, FP, FN, TP
-        print("Confusion Matrix:")
-        print("                  | Predicted Legitimate | Predicted Fraud")
-        print("------------------|--------------------|----------------")
-        print(f"Actual Legitimate |         TN={cm[0][0]}          |       FP={cm[0][1]}")
-        print(f"Actual Fraud      |         FN={cm[1][0]}          |       TP={cm[1][1]}")
-        
-        print("Accuracy: ", accuracy_score(y_test, y_pred))
-        print("Precision: ", precision_score(y_test, y_pred))
-        print("Recall: ", recall_score(y_test, y_pred), "\n\n")
-
-
-from imblearn.over_sampling import SMOTE, ADASYN
-from imblearn.under_sampling import RandomUnderSampler
-from imblearn.combine import SMOTETomek, SMOTEENN
-
-def apply_resampling(X_train, y_train, technique='smote', sampling_strategy=None):
-    """
-    Apply various resampling techniques to address class imbalance
-    
-    Args:
-        X_train: Training features
-        y_train: Training labels
-        technique: Resampling technique to use ('smote', 'adasyn', 'undersample', 'smote_tomek', 'smote_enn')
-        sampling_strategy: Ratio of minority to majority class (default is 'auto')
-    
-    Returns:
-        X_resampled, y_resampled: Resampled feature and label datasets
-    """
-    # If no sampling strategy is provided, use 'auto'
-    if sampling_strategy is None:
-        sampling_strategy = 'auto'
-    
-    # Select the resampling technique
-    if technique == 'smote':
-        sampler = SMOTE(sampling_strategy=sampling_strategy, random_state=42)
-    elif technique == 'adasyn':
-        sampler = ADASYN(sampling_strategy=sampling_strategy, random_state=42)
-    elif technique == 'undersample':
-        sampler = RandomUnderSampler(sampling_strategy=sampling_strategy, random_state=42)
-    elif technique == 'smote_tomek':
-        sampler = SMOTETomek(sampling_strategy=sampling_strategy, random_state=42)
-    elif technique == 'smote_enn':
-        sampler = SMOTEENN(sampling_strategy=sampling_strategy, random_state=42)
-    else:
-        raise ValueError(f"Unknown resampling technique: {technique}")
-    
-    # Apply the resampling
-    X_resampled, y_resampled = sampler.fit_resample(X_train, y_train)
-    
-    # Calculate class distribution after resampling
-    resampled_counts = pd.Series(y_resampled).value_counts()
-    print("\nResampled class distribution:")
-    print(f"Legitimate transactions: {resampled_counts[0]} ({resampled_counts[0]/len(y_resampled)*100:.2f}%)")
-    print(f"Fraudulent transactions: {resampled_counts[1]} ({resampled_counts[1]/len(y_resampled)*100:.2f}%)")
-    print(f"New ratio: {resampled_counts[0]/resampled_counts[1]:.2f}:1")
-    
-    return X_resampled, y_resampled
-
-
-from sklearn.metrics import classification_report, f1_score
-
-def compare_resampling_techniques(X_train, X_test, y_train, y_test):
-    """
-    Compare different resampling techniques using a simple model
-    """
-    # Define the techniques to test
-    techniques = ['smote', 'adasyn', 'undersample', 'smote_tomek', 'smote_enn']
-    
-    # Define a simple model for comparison
-    model = LogisticRegression(class_weight='balanced', max_iter=10000, random_state=42)
-    
-    # Store results
-    results = []
-    
-    # Baseline (no resampling)
     model.fit(X_train, y_train)
     y_pred = model.predict(X_test)
-    baseline_f1 = f1_score(y_test, y_pred)
-    print("Baseline (No resampling):")
-    print(classification_report(y_test, y_pred))
-    results.append(('baseline', baseline_f1))
+    print(f"Model: {model.__class__.__name__}")
     
-    # Test each resampling technique
-    for technique in techniques:
-        print(f"\nTesting: {technique}")
-        X_resampled, y_resampled = apply_resampling(X_train, y_train, technique=technique)
-        
-        # Train the model
-        model.fit(X_resampled, y_resampled)
-        # Evaluate
-        y_pred = model.predict(X_test)
-        technique_f1 = f1_score(y_test, y_pred)
-        print(classification_report(y_test, y_pred))
-        results.append((technique, technique_f1))
+    # Get confusion matrix
+    cm = confusion_matrix(y_test, y_pred)
     
-    # Compare results
-    print("\nF1 Score Comparison:")
-    for technique, f1 in results:
-        print(f"{technique}: {f1:.4f}")
+    # Print labeled confusion matrix with TN, FP, FN, TP
+    print("Confusion Matrix:")
+    print("                  | Predicted Legitimate | Predicted Fraud")
+    print("------------------|--------------------|----------------")
+    print(f"Actual Legitimate |         TN={cm[0][0]}          |       FP={cm[0][1]}")
+    print(f"Actual Fraud      |         FN={cm[1][0]}          |       TP={cm[1][1]}")
     
-    # Find the best technique
-    best_technique = max(results, key=lambda x: x[1])
-    print(f"\nBest technique: {best_technique[0]} (F1 = {best_technique[1]:.4f})")
-    
-    return best_technique[0]
-
-def find_optimal_sampling_ratio(X_train, X_test, y_train, y_test, best_technique):
-    """
-    Find the optimal sampling ratio for the best resampling technique
-    """
-    if best_technique == 'baseline':
-        print("Baseline (no resampling) performed best. Skipping ratio optimization.")
-        return None
-        
-    # Get class counts
-    n_majority = np.sum(y_train == 0)
-    n_minority = np.sum(y_train == 1)
-    
-    if best_technique == 'undersample':
-        # For undersampling, ratios represent how much of the majority class to keep
-        # We can't have more samples than the minority class
-        ratios = [0.5, 1.0, 2.0, 5.0, 10.0]  # multiplier of minority class size
-        print("\nFor undersampling, ratios represent majority:minority ratio")
-    else:
-        # For oversampling, ratios represent minority:majority ratio
-        ratios = [0.1, 0.25, 0.5, 0.75, 1.0]
-        print("\nFor oversampling, ratios represent minority:majority ratio")
-    
-    # Simple model for testing
-    model = LogisticRegression(class_weight='balanced', max_iter=10000, random_state=42)
-    
-    # Store results
-    results = []
-    
-    for ratio in ratios:
-        print(f"\nTesting ratio: {ratio}")
-        
-        if best_technique == 'undersample':
-            # For undersampling, we're reducing majority class
-            n_samples_majority = int(n_minority * ratio)
-            sampling_strategy = {0: n_samples_majority}  # 0 is majority class
-        else:
-            # For oversampling, we're increasing minority class
-            n_samples_minority = int(n_majority * ratio)
-            sampling_strategy = {1: n_samples_minority}  # 1 is minority class
-        
-        # Apply resampling
-        X_resampled, y_resampled = apply_resampling(
-            X_train, y_train, 
-            technique=best_technique,
-            sampling_strategy=sampling_strategy
-        )
-        
-        # Train and evaluate
-        model.fit(X_resampled, y_resampled)
-        y_pred = model.predict(X_test)
-        ratio_f1 = f1_score(y_test, y_pred)
-        
-        print(f"F1 Score: {ratio_f1:.4f}")
-        results.append((ratio, ratio_f1))
-    
-    # Find the best ratio
-    best_ratio = max(results, key=lambda x: x[1])
-    print(f"\nBest ratio: {best_ratio[0]} (F1 = {best_ratio[1]:.4f})")
-    
-    return best_ratio[0]
+    print("Accuracy: ", accuracy_score(y_test, y_pred))
+    print("Precision: ", precision_score(y_test, y_pred))
+    print("Recall: ", recall_score(y_test, y_pred), "\n\n")
 
 def create_temporal_features(df):
     """Add time-based features that may indicate fraud patterns"""
@@ -482,69 +306,44 @@ def main():
     Main function to run the fraud detection process.
     """
     # Load and clean data
+    print("Starting data loading...")
     df = load_and_clean_data('Fraud Detection Dataset.csv')
+    print("Data loading complete.")
     
     # Engineer features
-    print("\nEngineering features...")
+    print("\nStarting feature engineering...")
     df = engineer_features(df)
+    print("Feature engineering complete.")
     
     # Encode categorical features
-    print("\nEncoding categorical features...")
+    print("\nStarting categorical feature encoding...")
     categorical_columns = ['Transaction_Type', 'Device_Used', 'Location', 'Payment_Method']
     df_encoded = encode_categorical_features(df, categorical_columns)
+    print("Categorical feature encoding complete.")
     
     # Prepare data
-    print("\nPreparing data for training...")
+    print("\nStarting data preparation...")
     x, y = prepare_data(df_encoded)
+    print("Data preparation complete.")
     
     # Analyze class distribution
-    print("\nAnalyzing class distribution...")
+    print("\nStarting class distribution analysis...")
     analyze_class_distribution(y)
+    print("Class distribution analysis complete.")
     
     # Split data
-    print("\nSplitting data into train and test sets...")
+    print("\nStarting train-test split...")
     X_train, X_test, y_train, y_test = train_test_data_split(x, y)
+    print("Train-test split complete.")
+    print(f"Training set shape: {X_train.shape}")
+    print(f"Testing set shape: {X_test.shape}")
     
-    # Compare different resampling techniques and find the best one
-    print("\nComparing resampling techniques...")
-    best_technique = compare_resampling_techniques(X_train, X_test, y_train, y_test)
-    
-    # Find optimal sampling ratio for the best technique
-    print("\nFinding optimal sampling ratio...")
-    best_ratio = find_optimal_sampling_ratio(X_train, X_test, y_train, y_test, best_technique)
-    
-    # Apply the best resampling technique
-    if best_technique == 'baseline':
-        print("\nUsing original data since baseline performed best")
-        X_train_resampled, y_train_resampled = X_train, y_train
-    else:
-        print(f"\nApplying {best_technique} with ratio {best_ratio}")
-        if best_technique == 'undersample':
-            # For undersampling, ratio represents how many majority samples per minority sample
-            n_samples_majority = int(np.sum(y_train == 1) * best_ratio)  # multiply minority count by ratio
-            sampling_strategy = {0: n_samples_majority}  # 0 is majority class
-        else:
-            # For oversampling, ratio represents how many minority samples per majority sample
-            n_samples_minority = int(np.sum(y_train == 0) * best_ratio)  # multiply majority count by ratio
-            sampling_strategy = {1: n_samples_minority}  # 1 is minority class
-            
-        X_train_resampled, y_train_resampled = apply_resampling(
-            X_train, y_train, 
-            technique=best_technique,
-            sampling_strategy=sampling_strategy
-        )
-    
-    # Define models with balanced class weights
-    print("\nDefining models...")
-    models = define_models()
-    
-    # Evaluate models with original imbalanced data (as baseline)
-    print("\nEvaluating models with original imbalanced data:")
-    evaluate_models(models, X_train, X_test, y_train, y_test)
-    
-    # Evaluate models with resampled data
-    print("\nEvaluating models with resampled data:")
-    evaluate_models(models, X_train_resampled, X_test, y_train_resampled, y_test)
+    # Define and evaluate SVM model
+    print("\nStarting SVM model training...")
+    model = define_model()
+    print("Model defined, starting evaluation...")
+    evaluate_model(model, X_train, X_test, y_train, y_test)
+    print("Model evaluation complete.")
 
 if __name__ == "__main__":
     main()
