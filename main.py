@@ -107,15 +107,15 @@ def define_model():
     Define SVM model for fraud detection with balanced class weights.
     """
     return svm.SVC(
-        class_weight='balanced',
+        class_weight='balanced',  # Automatically adjust weights based on class frequencies
         kernel='rbf',
         probability=True,
-        random_state=42
+        random_state=42,  # Regularization parameter - lower C means more regularization
     )
 
 def analyze_class_distribution(y):
     """
-    Analyze and visualize the class distribution
+    Analyze the class distribution
     """
     # Count the occurrences of each class
     class_counts = pd.Series(y).value_counts()
@@ -125,14 +125,6 @@ def analyze_class_distribution(y):
     print(f"Legitimate transactions: {class_counts[0]} ({class_counts[0]/len(y)*100:.2f}%)")
     print(f"Fraudulent transactions: {class_counts[1]} ({class_counts[1]/len(y)*100:.2f}%)")
     print(f"Imbalance ratio: {imbalance_ratio:.2f}:1")
-    
-    # If you want to visualize it
-    import matplotlib.pyplot as plt
-    plt.figure(figsize=(8, 6))
-    plt.bar(['Legitimate', 'Fraud'], class_counts)
-    plt.title('Class Distribution in Fraud Detection Dataset')
-    plt.ylabel('Count')
-    plt.show()
     
     return imbalance_ratio
 
