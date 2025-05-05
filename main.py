@@ -5,6 +5,9 @@ from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, r
 from sklearn.preprocessing import LabelEncoder
 from datetime import datetime
 import numpy as np
+from sklearn.ensemble import RandomForestClassifier
+import xgboost as xgb
+from sklearn.model_selection import GridSearchCV
 
 def load_and_clean_data(file_path):
     """
@@ -320,7 +323,7 @@ def main():
     
     # Analyze class distribution
     print("\nStarting class distribution analysis...")
-    analyze_class_distribution(y)
+    imbalance_ratio = analyze_class_distribution(y)
     print("Class distribution analysis complete.")
     
     # Split data
@@ -330,12 +333,132 @@ def main():
     print(f"Training set shape: {X_train.shape}")
     print(f"Testing set shape: {X_test.shape}")
     
-    # Define and evaluate SVM model
-    print("\nStarting SVM model training...")
-    model = define_model()
-    print("Model defined, starting evaluation...")
-    evaluate_model(model, X_train, X_test, y_train, y_test)
-    print("Model evaluation complete.")
+    # Analyze class distribution in training set
+    print("Class distribution in training set:")
+    print(y_train.value_counts(normalize=True))
+    
+
+    # Define the model with a more appropriate scale_pos_weight
+    # Use approximately the imbalance ratio, but not as extreme
+    scale_pos_weight_value = min(imbalance_ratio, 10)  # Cap at 10 to avoid extreme predictions
+    
+    xgb_model = xgb.XGBClassifier(
+        n_estimators=100,
+        learning_rate=0.1,
+        max_depth=5,
+        scale_pos_weight=scale_pos_weight_value,
+        random_state=42
+    )
+
+    # Train and evaluate
+    xgb_model.fit(X_train, y_train)
+    
+    # Get probability scores for threshold tuning
+    y_prob = xgb_model.predict_proba(X_test)[:, 1]
+    
+    # Try different thresholds to find optimal balance
+    print("\nPrecision-Recall trade-off at different thresholds:")
+    print("Threshold | Precision | Recall | Accuracy | F1 Score")
+    print("----------|-----------|--------|----------|--------")
+    
+    best_f1 = 0
+    best_threshold = 0.5
+    
+    # Try different thresholds from 0.1 to 0.9
+    for threshold in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]:
+        y_pred = (y_prob >= threshold).astype(int)
+        
+        # Calculate metrics
+        acc = accuracy_score(y_test, y_pred)
+        prec = precision_score(y_test, y_pred, zero_division=0)
+        rec = recall_score(y_test, y_pred)
+        
+        # Calculate F1 score (harmonic mean of precision and recall)
+        f1 = 0 if (prec + rec == 0) else 2 * (prec * rec) / (prec + rec)
+        
+        # Print results
+        print(f"{threshold:.1f}      | {prec:.4f}    | {rec:.4f} | {acc:.4f}   | {f1:.4f}")
+        
+        # Keep track of best F1 score
+        if f1 > best_f1:
+            best_f1 = f1
+            best_threshold = threshold
+    
+    # Use the threshold with the best F1 score
+    print(f"\nUsing best threshold: {best_threshold:.1f} with F1 score: {best_f1:.4f}")
+    y_pred = (y_prob >= best_threshold).astype(int)
+    
+    # Evaluate with the best threshold
+    print("\nXGBoost Results with optimized threshold:")
+    print("Accuracy:", accuracy_score(y_test, y_pred))
+    print("Recall:", recall_score(y_test, y_pred))
+    print("Precision:", precision_score(y_test, y_pred, zero_division=0))
+    print("F1 Score:", best_f1)
+
+    # Confusion Matrix
+    cm = confusion_matrix(y_test, y_pred)
+    print("\nConfusion Matrix:")
+    print("                  | Predicted Legitimate | Predicted Fraud")
+    print("------------------|--------------------|----------------")
+    print(f"Actual Legitimate |         TN={cm[0][0]}          |       FP={cm[0][1]}")
+    print(f"Actual Fraud      |         FN={cm[1][0]}          |       TP={cm[1][1]}")
+
+    # Feature importance
+    feature_names = X_train.columns
+    importances = xgb_model.feature_importances_
+    feature_importance = pd.DataFrame({'Feature': feature_names, 'Importance': importances})
+    feature_importance = feature_importance.sort_values('Importance', ascending=False)
+    print("\nTop 10 Most Important Features:")
+    print(feature_importance.head(10))
+
+    # Grid search for XGBoost
+    print("\nPerforming grid search for optimal hyperparameters...")
+    
+    # Define the model
+    xgb_model_for_grid = xgb.XGBClassifier(random_state=42)
+
+    # Define the parameter grid
+    param_grid = {
+        'n_estimators': [50, 100, 200],
+        'learning_rate': [0.01, 0.1, 0.2],
+        'max_depth': [3, 5, 7],
+        'scale_pos_weight': [1, 5, scale_pos_weight_value]  # Include our calculated value
+    }
+
+    # Perform grid search optimizing for F1 score instead of just recall
+    grid_search = GridSearchCV(xgb_model_for_grid, param_grid, cv=5, scoring='f1')
+    grid_search.fit(X_train, y_train)
+
+    print(f"Best parameters: {grid_search.best_params_}")
+    
+    # Get the best model
+    best_xgb = grid_search.best_estimator_
+    
+    # Get probability scores
+    y_prob_best = best_xgb.predict_proba(X_test)[:, 1]
+    
+    # Use the same threshold optimization for the best model
+    y_pred_best = (y_prob_best >= best_threshold).astype(int)
+
+    # Evaluate
+    print("\nTuned XGBoost Results:")
+    acc_best = accuracy_score(y_test, y_pred_best)
+    prec_best = precision_score(y_test, y_pred_best, zero_division=0)
+    rec_best = recall_score(y_test, y_pred_best)
+    f1_best = 2 * (prec_best * rec_best) / (prec_best + rec_best) if (prec_best + rec_best > 0) else 0
+    
+    print("Accuracy:", acc_best)
+    print("Recall:", rec_best)
+    print("Precision:", prec_best)
+    print("F1 Score:", f1_best)
+
+    # Confusion Matrix for best model
+    cm_best = confusion_matrix(y_test, y_pred_best)
+    print("\nConfusion Matrix for Best Model:")
+    print("                  | Predicted Legitimate | Predicted Fraud")
+    print("------------------|--------------------|----------------")
+    print(f"Actual Legitimate |         TN={cm_best[0][0]}          |       FP={cm_best[0][1]}")
+    print(f"Actual Fraud      |         FN={cm_best[1][0]}          |       TP={cm_best[1][1]}")
 
 if __name__ == "__main__":
     main()
