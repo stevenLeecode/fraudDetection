@@ -12,8 +12,8 @@ Financial fraud is a major concern that leads to significant economic losses acr
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/<your-username>/<your-repo>.git
-   cd <your-repo>
+   git clone https://github.com/stevenLeecode/fraudDetection.git
+   cd fraudDetection
    ```
 
 2. **Create a virtual environment** (recommended)
