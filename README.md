@@ -1,6 +1,6 @@
-# Project Title
+# Fraud Detection
 
-A brief description of what this project does and who it's for.
+Financial fraud is a major concern that leads to significant economic losses across various sectors such as banking, e-commerce, and insurance. Detecting fraudulent transactions is challenging due to the rarity of fraud cases compared to legitimate transactions and the evolving tactics used by fraudsters. In this project, we aim to develop a robust machine learning model that can accurately detect fraudulent transactions in a real-world setting.
 
 ## Prerequisites
 
